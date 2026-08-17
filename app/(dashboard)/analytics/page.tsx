@@ -59,9 +59,10 @@ export default async function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <SimpleBarChart
-              data={data.gpaDistribution}
-              xKey="range"
-              yKey="count"
+              data={data.gpaDistribution.map((item) => ({
+                label: item.range,
+                value: item.count,
+              }))}
               color="#2563EB"
             />
           </CardContent>
@@ -73,9 +74,10 @@ export default async function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <SimpleBarChart
-              data={data.attendanceAnalysis}
-              xKey="range"
-              yKey="count"
+              data={data.attendanceAnalysis.map((item) => ({
+                label: item.range,
+                value: item.count,
+              }))}
               color="#16A34A"
             />
           </CardContent>
@@ -87,9 +89,10 @@ export default async function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <SimpleBarChart
-              data={data.coursePerformance}
-              xKey="courseCode"
-              yKey="averageScore"
+              data={data.coursePerformance.map((item) => ({
+                label: item.courseCode,
+                value: item.averageScore,
+              }))}
               color="#D97706"
             />
           </CardContent>

@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bell,
   BookOpen,
-  GraduationCap,
   LayoutDashboard,
   LineChart,
   Settings,
@@ -35,5 +34,3 @@ export const PAGE_TITLES: Record<string, string> = {
   "/courses": "Courses",
   "/settings": "Settings",
 };
-
-export { GraduationCap };

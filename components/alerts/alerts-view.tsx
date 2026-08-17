@@ -8,8 +8,8 @@ import { StudentIdentity } from "@/components/students/student-identity";
 import { SeverityBadge, StatusBadge } from "@/components/ui/status-badges";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { alertTypeLabel, formatDate } from "@/lib/utils";
-import type { Alert, AlertStatus } from "@/types/alert";
-import type { AlertSeverity } from "@/types/common";
+import type { Alert } from "@/types/alert";
+import type { AlertSeverity, AlertStatus } from "@/types/common";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 

@@ -22,6 +22,9 @@ export default async function PredictionsPage() {
   ]);
 
   const highRisk = predictions.filter((item) => item.riskLevel === "high");
+  const recent = [...predictions]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 8);
   const riskDistribution = [
     { level: "low" as const, count: overview.lowRisk },
     { level: "medium" as const, count: overview.mediumRisk },
@@ -121,7 +124,7 @@ export default async function PredictionsPage() {
       <section className="space-y-4">
         <h2 className="text-sm font-semibold text-slate-900">Recent predictions</h2>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {predictions.map((item) => (
+          {recent.map((item) => (
             <Card key={item.id}>
               <CardContent className="space-y-4 py-5">
                 <div className="flex items-start justify-between gap-3">
