@@ -1,7 +1,8 @@
 "use client";
 
 import { NAV_ITEMS } from "@/lib/nav";
-import { APP_NAME, APP_TAGLINE, CURRENT_USER } from "@/lib/constants";
+import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
+import { useProfile } from "@/components/profile/profile-provider";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { GraduationCap, LogOut, X } from "lucide-react";
@@ -15,6 +16,7 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { profile } = useProfile();
 
   return (
     <>
@@ -89,12 +91,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
         <div className="border-t border-slate-100 p-4">
           <div className="flex items-center gap-3">
-            <Avatar name={CURRENT_USER.name} size="sm" />
+            <Avatar name={profile.name} image={profile.image} size="sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-slate-900">
-                {CURRENT_USER.name}
+                {profile.name}
               </p>
-              <p className="truncate text-xs text-slate-500">{CURRENT_USER.role}</p>
+              <p className="truncate text-xs text-slate-500">{profile.role}</p>
             </div>
           </div>
           <button

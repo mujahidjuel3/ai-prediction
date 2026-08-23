@@ -2,6 +2,7 @@ import { cn, getInitials } from "@/lib/utils";
 
 interface AvatarProps {
   name: string;
+  image?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
 }
@@ -12,7 +13,7 @@ const sizeClasses = {
   lg: "h-14 w-14 text-base",
 };
 
-export function Avatar({ name, size = "md", className }: AvatarProps) {
+export function Avatar({ name, image, size = "md", className }: AvatarProps) {
   return (
     <span
       aria-hidden="true"
@@ -22,7 +23,11 @@ export function Avatar({ name, size = "md", className }: AvatarProps) {
         className,
       )}
     >
-      {getInitials(name)}
+      {image ? (
+        <img src={image} alt="" className="h-full w-full rounded-full object-cover" />
+      ) : (
+        getInitials(name)
+      )}
     </span>
   );
 }

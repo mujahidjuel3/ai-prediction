@@ -3,10 +3,28 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useProfile } from "@/components/profile/profile-provider";
 import { CURRENT_USER } from "@/lib/constants";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function SettingsForm() {
+  const { profile, updateProfile } = useProfile();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [name, setName] = useState(profile.name);
+  const [role, setRole] = useState(profile.role);
+  const [email, setEmail] = useState(profile.email);
+  const [department, setDepartment] = useState(profile.department);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  useEffect(() => {
+    const syncProfileFields = () => {
+      setName(profile.name);
+      setRole(profile.role);
+      setEmail(profile.email);
+      setDepartment(profile.department);
+    };
+    queueMicrotask(syncProfileFields);
+  }, [profile.name, profile.role, profile.email, profile.department]);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(true);
   const [highRiskOnly, setHighRiskOnly] = useState(false);
@@ -20,15 +38,65 @@ export function SettingsForm() {
           <CardDescription>Advisor profile used in this demonstration interface.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Input id="profile-name" label="Name" defaultValue={CURRENT_USER.name} readOnly />
-          <Input id="profile-role" label="Role" defaultValue={CURRENT_USER.role} readOnly />
-          <Input id="profile-email" label="Email" defaultValue={CURRENT_USER.email} readOnly />
+          <Input id="profile-name" label="Name" value={name} onChange={(event) => setName(event.target.value)} />
+          <Input id="profile-role" label="Role / title" value={role} onChange={(event) => setRole(event.target.value)} />
+          <Input id="profile-email" label="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
           <Input
             id="profile-department"
             label="Department"
-            defaultValue={CURRENT_USER.department}
-            readOnly
+            value={department}
+            onChange={(event) => setDepartment(event.target.value)}
           />
+          <div className="md:col-span-2">
+            <p className="mb-1.5 text-sm font-medium text-slate-700">Profile image</p>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 overflow-hidden rounded-full bg-blue-50">
+                {profile.image ? (
+                  <img src={profile.image} alt="Profile preview" className="h-full w-full object-cover" />
+                ) : null}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => updateProfile({ image: String(reader.result) });
+                  reader.readAsDataURL(file);
+                }}
+              />
+              <Button type="button" size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                Choose file
+              </Button>
+              {!profile.image ? <span className="text-sm text-slate-600">No file chosen</span> : null}
+              {profile.image ? (
+                <Button type="button" size="sm" variant="outline" onClick={() => {
+                  updateProfile({ image: "" });
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}>
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => {
+              updateProfile({
+                name: name.trim() || CURRENT_USER.name,
+                role: role.trim() || CURRENT_USER.role,
+                email: email.trim() || CURRENT_USER.email,
+                department: department.trim() || CURRENT_USER.department,
+              });
+              setProfileSaved(true);
+            }}
+          >
+            Save profile
+          </Button>
+          {profileSaved ? <p className="text-sm text-success">Profile saved in this browser.</p> : null}
         </CardContent>
       </Card>
 

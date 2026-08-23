@@ -1,7 +1,7 @@
 "use client";
 
 import { Avatar } from "@/components/ui/avatar";
-import { CURRENT_USER } from "@/lib/constants";
+import { useProfile } from "@/components/profile/profile-provider";
 import { PAGE_TITLES } from "@/lib/nav";
 import { Bell, Menu } from "lucide-react";
 import Link from "next/link";
@@ -15,6 +15,7 @@ interface HeaderProps {
 export function Header({ onMenuClick, alertCount }: HeaderProps) {
   const pathname = usePathname();
   const title = getPageTitle(pathname);
+  const { profile } = useProfile();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 lg:px-8">
@@ -48,10 +49,10 @@ export function Header({ onMenuClick, alertCount }: HeaderProps) {
           ) : null}
         </Link>
         <div className="hidden items-center gap-2 md:flex">
-          <Avatar name={CURRENT_USER.name} size="sm" />
+          <Avatar name={profile.name} image={profile.image} size="sm" />
           <div className="leading-tight">
-            <p className="text-sm font-medium text-slate-900">{CURRENT_USER.name}</p>
-            <p className="text-xs text-slate-500">{CURRENT_USER.role}</p>
+            <p className="text-sm font-medium text-slate-900">{profile.name}</p>
+            <p className="text-xs text-slate-500">{profile.role}</p>
           </div>
         </div>
       </div>
