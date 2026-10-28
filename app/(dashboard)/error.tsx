@@ -11,7 +11,7 @@ export default function DashboardError({
   return (
     <ErrorState
       title="This section could not be loaded"
-      description="Refresh the page or try again. Mock academic data should load without a backend."
+      description="Check your connection and signed-in permissions, then try the API request again."
       onRetry={reset}
     />
   );

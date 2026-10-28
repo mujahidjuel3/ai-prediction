@@ -3,153 +3,55 @@
 import { buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { LoadingState } from "@/components/ui/loading-state";
+import { Pagination } from "@/components/ui/pagination";
 import { Select } from "@/components/ui/select";
-import { StudentIdentity } from "@/components/students/student-identity";
-import { SeverityBadge, StatusBadge } from "@/components/ui/status-badges";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { alertTypeLabel, formatDate } from "@/lib/utils";
-import type { Alert } from "@/types/alert";
-import type { AlertSeverity, AlertStatus } from "@/types/common";
+import { apiRequest, formatApiError, type RiskAlert } from "@/lib/api";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-interface AlertsViewProps {
-  alerts: Alert[];
-}
-
-export function AlertsView({ alerts }: AlertsViewProps) {
-  const [severity, setSeverity] = useState("all");
+export function AlertsView() {
+  const [alerts, setAlerts] = useState<RiskAlert[]>([]);
   const [status, setStatus] = useState("all");
+  const [severity, setSeverity] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pageCount, setPageCount] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
 
-  const filtered = useMemo(() => {
-    return alerts.filter((alert) => {
-      const matchesSeverity = severity === "all" || alert.severity === severity;
-      const matchesStatus = status === "all" || alert.status === status;
-      return matchesSeverity && matchesStatus;
-    });
-  }, [alerts, severity, status]);
+  useEffect(() => {
+    let alive = true;
+    const params = new URLSearchParams({ page: String(page), pageSize: "25" });
+    if (status !== "all") params.set("status", status);
+    apiRequest<RiskAlert[]>(`/alerts?${params}`).then((response) => {
+      if (!alive) return;
+      setAlerts(response.data); setPageCount(response.meta?.totalPages ?? 1);
+    }).catch((reason: unknown) => { if (alive) setError(formatApiError(reason)); }).finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [page, status, retry]);
 
-  return (
-    <div className="space-y-4">
-      <Card className="p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Select
-            id="severity-filter"
-            label="Severity"
-            value={severity}
-            onChange={(event) =>
-              setSeverity(event.target.value as AlertSeverity | "all")
-            }
-            options={[
-              { label: "All severities", value: "all" },
-              { label: "High", value: "high" },
-              { label: "Medium", value: "medium" },
-              { label: "Low", value: "low" },
-            ]}
-          />
-          <Select
-            id="status-filter"
-            label="Status"
-            value={status}
-            onChange={(event) =>
-              setStatus(event.target.value as AlertStatus | "all")
-            }
-            options={[
-              { label: "All statuses", value: "all" },
-              { label: "Open", value: "open" },
-              { label: "Acknowledged", value: "acknowledged" },
-              { label: "Resolved", value: "resolved" },
-            ]}
-          />
-        </div>
-      </Card>
+  async function updateStatus(alert: RiskAlert, nextStatus: "ACKNOWLEDGED" | "RESOLVED") {
+    setPending(alert.id); setActionError(null);
+    try {
+      await apiRequest(`/alerts/${encodeURIComponent(alert.id)}`, { method: "PATCH", body: JSON.stringify({ status: nextStatus }) });
+      setRetry((value) => value + 1);
+    } catch (reason) { setActionError(formatApiError(reason)); }
+    finally { setPending(null); }
+  }
 
-      <Card>
-        {filtered.length === 0 ? (
-          <EmptyState
-            title="No alerts in this view"
-            description="Try a different severity or status filter."
-          />
-        ) : (
-          <>
-            <div className="hidden md:block">
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>Student</TH>
-                    <TH>Alert type</TH>
-                    <TH>Severity</TH>
-                    <TH>Reason</TH>
-                    <TH>Date</TH>
-                    <TH>Status</TH>
-                    <TH>Action</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {filtered.map((alert) => (
-                    <TR key={alert.id}>
-                      <TD>
-                        <StudentIdentity
-                          name={alert.studentName}
-                          secondary={alert.studentId}
-                        />
-                      </TD>
-                      <TD>{alertTypeLabel(alert.type)}</TD>
-                      <TD>
-                        <SeverityBadge level={alert.severity} />
-                      </TD>
-                      <TD className="max-w-sm whitespace-normal">
-                        {alert.reason}
-                      </TD>
-                      <TD>{formatDate(alert.date)}</TD>
-                      <TD>
-                        <StatusBadge status={alert.status} />
-                      </TD>
-                      <TD>
-                        <Link
-                          href={`/students/${alert.studentId}`}
-                          className={buttonClassName("outline", "sm")}
-                        >
-                          Review
-                        </Link>
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </Table>
-            </div>
-            <div className="space-y-3 p-4 md:hidden">
-              {filtered.map((alert) => (
-                <div
-                  key={alert.id}
-                  className="rounded-lg border border-slate-200 p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <StudentIdentity
-                      name={alert.studentName}
-                      secondary={alertTypeLabel(alert.type)}
-                    />
-                    <SeverityBadge level={alert.severity} />
-                  </div>
-                  <p className="mt-3 text-sm text-slate-700">{alert.reason}</p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <StatusBadge status={alert.status} />
-                    <span className="text-xs text-slate-400">
-                      {formatDate(alert.date)}
-                    </span>
-                  </div>
-                  <Link
-                    href={`/students/${alert.studentId}`}
-                    className={`${buttonClassName("outline", "sm")} mt-3 w-full`}
-                  >
-                    Review student
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </Card>
-    </div>
-  );
+  const visible = severity === "all" ? alerts : alerts.filter((alert) => alert.severity === severity);
+  return <div className="space-y-4">
+    <Card className="p-4"><div className="grid gap-3 sm:grid-cols-2"><Select id="alert-status" label="Status" value={status} onChange={(event) => { setLoading(true); setStatus(event.target.value); setPage(1); }} options={[{ label: "All statuses", value: "all" }, { label: "Open", value: "OPEN" }, { label: "Acknowledged", value: "ACKNOWLEDGED" }, { label: "Resolved", value: "RESOLVED" }]} /><Select id="alert-severity" label="Severity" value={severity} onChange={(event) => setSeverity(event.target.value)} options={[{ label: "All severities", value: "all" }, { label: "High", value: "HIGH" }, { label: "Medium", value: "MEDIUM" }, { label: "Low", value: "LOW" }]} /></div></Card>
+    {actionError ? <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">Update failed: {actionError}</p> : null}
+    {error ? <ErrorState title="Alerts could not be loaded" description={error} onRetry={() => setRetry((value) => value + 1)} /> : null}
+    {loading ? <LoadingState label="Loading alerts in your permitted scope" /> : error ? null : <Card>
+      {visible.length === 0 ? <EmptyState title="No stored alerts" description={severity === "all" ? "No alerts were returned for this status." : "No alerts match this severity on the current page."} /> : <Table><THead><TR><TH>Student</TH><TH>Category</TH><TH>Severity</TH><TH>Reason</TH><TH>Term</TH><TH>Status</TH><TH>Actions</TH></TR></THead><TBody>{visible.map((alert) => <TR key={alert.id}><TD>{alert.student ? <Link className="font-medium text-primary" href={`/students/${alert.student.id}`}>{alert.student.name}<span className="block text-xs text-slate-500">{alert.student.studentNumber}</span></Link> : "—"}</TD><TD>{alert.category}</TD><TD>{alert.severity}</TD><TD className="max-w-sm whitespace-normal">{alert.reason}</TD><TD>{alert.term?.label ?? "—"}</TD><TD>{alert.status}</TD><TD><div className="flex gap-2">{alert.status === "OPEN" ? <button className={buttonClassName("outline", "sm")} disabled={pending === alert.id} onClick={() => void updateStatus(alert, "ACKNOWLEDGED")}>Acknowledge</button> : null}{alert.status !== "RESOLVED" ? <button className={buttonClassName("primary", "sm")} disabled={pending === alert.id} onClick={() => void updateStatus(alert, "RESOLVED")}>Resolve</button> : null}</div></TD></TR>)}</TBody></Table>}
+      <Pagination page={page} pageCount={pageCount} onPageChange={(nextPage) => { setLoading(true); setPage(nextPage); }} />
+    </Card>}
+  </div>;
 }

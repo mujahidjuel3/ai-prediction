@@ -2,21 +2,22 @@
 
 import { NAV_ITEMS } from "@/lib/nav";
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
-import { useProfile } from "@/components/profile/profile-provider";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { GraduationCap, LogOut, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { SessionUser } from "@/lib/api";
 
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
+  user: SessionUser;
+  onSignOut: () => void;
 }
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, onClose, user, onSignOut }: SidebarProps) {
   const pathname = usePathname();
-  const { profile } = useProfile();
 
   return (
     <>
@@ -63,7 +64,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             Menu
           </p>
           <ul className="space-y-1">
-            {NAV_ITEMS.map((item) => {
+            {NAV_ITEMS.filter((item) => item.roles.includes(user.role)).map((item) => {
               const active =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
@@ -91,17 +92,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
         <div className="border-t border-slate-100 p-4">
           <div className="flex items-center gap-3">
-            <Avatar name={profile.name} image={profile.image} size="sm" />
+            <Avatar name={user.name} size="sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-slate-900">
-                {profile.name}
+                {user.name}
               </p>
-              <p className="truncate text-xs text-slate-500">{profile.role}</p>
+              <p className="truncate text-xs text-slate-500">{user.role}</p>
             </div>
           </div>
           <button
             type="button"
             className="mt-3 flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-slate-50"
+            onClick={onSignOut}
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Logout

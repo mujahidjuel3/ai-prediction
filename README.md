@@ -2,7 +2,7 @@
 
 Frontend for a university academic analytics platform that monitors student performance and surfaces early-warning risk signals.
 
-This repository currently contains the **frontend only**. Pages are powered by typed mock data through `lib/api.ts` so a backend can be connected later.
+This repository contains the Main Next.js frontend and connects to the Academic Sentinel API.
 
 ## Stack
 
@@ -18,6 +18,8 @@ This repository currently contains the **frontend only**. Pages are powered by t
 npm install
 npm run dev
 ```
+
+Copy `.env.example` to `.env.local` for local development. `NEXT_PUBLIC_API_BASE_URL` is the full API base URL and includes `/api/v1`; locally it defaults to `http://localhost:4000/api/v1`. Vercel Production uses `https://api.academicsentinel.live/api/v1`.
 
 Open [http://localhost:3000](http://localhost:3000). The home route redirects to `/dashboard`.
 

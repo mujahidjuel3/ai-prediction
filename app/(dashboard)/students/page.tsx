@@ -1,22 +1,9 @@
-import { PageHeader } from "@/components/ui/page-header";
 import { StudentsView } from "@/components/students/students-view";
-import { getStudents } from "@/lib/api";
+import { PageHeader } from "@/components/ui/page-header";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Students",
-};
+export const metadata: Metadata = { title: "Students" };
 
-export default async function StudentsPage() {
-  const students = await getStudents();
-
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Students"
-        description="Search, filter, and review academic records across the current cohort."
-      />
-      <StudentsView students={students} />
-    </div>
-  );
+export default function StudentsPage() {
+  return <div className="space-y-6"><PageHeader title="Students" description="Search and review active students visible in your role's permitted academic scope." /><StudentsView /></div>;
 }

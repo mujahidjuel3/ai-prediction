@@ -2,211 +2,54 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { useProfile } from "@/components/profile/profile-provider";
-import { CURRENT_USER } from "@/lib/constants";
-import { useEffect, useRef, useState } from "react";
+import { ErrorState } from "@/components/ui/error-state";
+import { LoadingState } from "@/components/ui/loading-state";
+import { apiRequest, formatApiError, type UserProfile } from "@/lib/api";
+import { useEffect, useState } from "react";
 
 export function SettingsForm() {
-  const { profile, updateProfile } = useProfile();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState(profile.name);
-  const [role, setRole] = useState(profile.role);
-  const [email, setEmail] = useState(profile.email);
-  const [department, setDepartment] = useState(profile.department);
-  const [profileSaved, setProfileSaved] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [preferences, setPreferences] = useState({ inApp: true, email: false, weeklySummary: false, highRiskAlerts: true, attendanceAlerts: true });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    const syncProfileFields = () => {
-      setName(profile.name);
-      setRole(profile.role);
-      setEmail(profile.email);
-      setDepartment(profile.department);
-    };
-    queueMicrotask(syncProfileFields);
-  }, [profile.name, profile.role, profile.email, profile.department]);
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [weeklyDigest, setWeeklyDigest] = useState(true);
-  const [highRiskOnly, setHighRiskOnly] = useState(false);
-  const [saved, setSaved] = useState(false);
+    let alive = true;
+    apiRequest<UserProfile>("/users/me").then(({ data }) => {
+      if (!alive) return;
+      setProfile(data);
+      const saved = data.preference;
+      if (saved) setPreferences({ inApp: saved.inApp, email: saved.email, weeklySummary: saved.weeklySummary, highRiskAlerts: saved.categories?.highRiskAlerts ?? true, attendanceAlerts: saved.categories?.attendanceAlerts ?? true });
+    }).catch((reason: unknown) => { if (alive) setError(formatApiError(reason)); }).finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [retry]);
 
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
-          <CardDescription>Advisor profile used in this demonstration interface.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Input id="profile-name" label="Name" value={name} onChange={(event) => setName(event.target.value)} />
-          <Input id="profile-role" label="Role / title" value={role} onChange={(event) => setRole(event.target.value)} />
-          <Input id="profile-email" label="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
-          <Input
-            id="profile-department"
-            label="Department"
-            value={department}
-            onChange={(event) => setDepartment(event.target.value)}
-          />
-          <div className="md:col-span-2">
-            <p className="mb-1.5 text-sm font-medium text-slate-700">Profile image</p>
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 overflow-hidden rounded-full bg-blue-50">
-                {profile.image ? (
-                  <img src={profile.image} alt="Profile preview" className="h-full w-full object-cover" />
-                ) : null}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () => updateProfile({ image: String(reader.result) });
-                  reader.readAsDataURL(file);
-                }}
-              />
-              <Button type="button" size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
-                Choose file
-              </Button>
-              {!profile.image ? <span className="text-sm text-slate-600">No file chosen</span> : null}
-              {profile.image ? (
-                <Button type="button" size="sm" variant="outline" onClick={() => {
-                  updateProfile({ image: "" });
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }}>
-                  Remove
-                </Button>
-              ) : null}
-            </div>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => {
-              updateProfile({
-                name: name.trim() || CURRENT_USER.name,
-                role: role.trim() || CURRENT_USER.role,
-                email: email.trim() || CURRENT_USER.email,
-                department: department.trim() || CURRENT_USER.department,
-              });
-              setProfileSaved(true);
-            }}
-          >
-            Save profile
-          </Button>
-          {profileSaved ? <p className="text-sm text-success">Profile saved in this browser.</p> : null}
-        </CardContent>
-      </Card>
+  async function savePreferences() {
+    setSaving(true); setError(null); setMessage(null);
+    try {
+      await apiRequest("/users/me/preferences", { method: "PATCH", body: JSON.stringify(preferences) });
+      setMessage("Notification preferences saved to your account.");
+    } catch (reason) { setError(formatApiError(reason)); }
+    finally { setSaving(false); }
+  }
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Notification preferences</CardTitle>
-          <CardDescription>
-            These options are stored in the browser for this demo only.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <ToggleRow
-            id="email-alerts"
-            label="Email alerts"
-            description="Receive a message when a high-risk alert is created."
-            checked={emailAlerts}
-            onChange={setEmailAlerts}
-          />
-          <ToggleRow
-            id="weekly-digest"
-            label="Weekly digest"
-            description="Summary of risk movement sent at the end of each week."
-            checked={weeklyDigest}
-            onChange={setWeeklyDigest}
-          />
-          <ToggleRow
-            id="high-risk-only"
-            label="High-risk alerts only"
-            description="Hide low and medium severity notifications."
-            checked={highRiskOnly}
-            onChange={setHighRiskOnly}
-          />
-          <Button
-            size="sm"
-            onClick={() => {
-              setSaved(true);
-            }}
-          >
-            Save preferences
-          </Button>
-          {saved ? (
-            <p className="text-sm text-success">Preferences saved in this session.</p>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>Dark mode will be added in a later release.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <label className="flex items-center justify-between gap-4 rounded-md border border-slate-200 px-3 py-3">
-            <span>
-              <span className="block text-sm font-medium text-slate-900">Dark mode</span>
-              <span className="block text-sm text-slate-500">Coming soon</span>
-            </span>
-            <input type="checkbox" disabled className="h-4 w-4" aria-label="Dark mode, coming soon" />
-          </label>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>System preferences</CardTitle>
-          <CardDescription>Institution defaults for this demonstration build.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Input id="gpa-threshold" label="High-risk GPA threshold" defaultValue="2.20" readOnly />
-          <Input
-            id="attendance-threshold"
-            label="Attendance warning threshold"
-            defaultValue="60%"
-            readOnly
-          />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function ToggleRow({
-  id,
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <label
-      htmlFor={id}
-      className="flex cursor-pointer items-start justify-between gap-4 rounded-md border border-slate-200 px-3 py-3"
-    >
-      <span>
-        <span className="block text-sm font-medium text-slate-900">{label}</span>
-        <span className="block text-sm text-slate-500">{description}</span>
-      </span>
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="mt-1 h-4 w-4 accent-primary"
-      />
-    </label>
-  );
+  if (loading) return <LoadingState label="Loading account settings" />;
+  if (error && !profile) return <ErrorState title="Settings could not be loaded" description={error} onRetry={() => { setLoading(true); setError(null); setRetry((value) => value + 1); }} />;
+  return <div className="space-y-6">
+    {error ? <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+    <Card><CardHeader><CardTitle>Account</CardTitle><CardDescription>Identity returned for your authenticated session.</CardDescription></CardHeader><CardContent className="grid gap-3 text-sm sm:grid-cols-2"><p><span className="text-slate-500">Name: </span>{profile?.name}</p><p><span className="text-slate-500">Email: </span>{profile?.email}</p><p><span className="text-slate-500">Role: </span>{profile?.role}</p><p><span className="text-slate-500">Status: </span>{profile?.status}</p><p className="text-xs text-slate-500 sm:col-span-2">Academic identity fields are managed by the institution so account and academic profiles stay aligned.</p></CardContent></Card>
+    <Card><CardHeader><CardTitle>Notification preferences</CardTitle><CardDescription>Email delivery is optional and applies only to eligible manual messages after institutional policy approval. SMTP acceptance is not proof of inbox delivery; risk-alert email is not enabled.</CardDescription></CardHeader><CardContent className="space-y-3">{[
+      ["inApp", "In-app messages", "Allow in-app notification preference."],
+      ["email", "Email opt-in", "Allows eligible manual messages to be emailed when server SMTP is configured."],
+      ["weeklySummary", "Weekly summary preference", "Stores a preference only; no weekly email is sent."],
+      ["highRiskAlerts", "High-risk alert category", "Preference category saved by the API."],
+      ["attendanceAlerts", "Attendance alert category", "Preference category saved by the API."],
+    ].map(([key, label, description]) => <label key={key} htmlFor={`pref-${key}`} className="flex items-start justify-between gap-4 rounded-md border border-slate-200 px-3 py-3"><span><span className="block text-sm font-medium text-slate-900">{label}</span><span className="block text-sm text-slate-500">{description}</span></span><input id={`pref-${key}`} type="checkbox" checked={preferences[key as keyof typeof preferences]} onChange={(event) => setPreferences((current) => ({ ...current, [key]: event.target.checked }))} className="mt-1 h-4 w-4 accent-primary" /></label>)}
+      <Button size="sm" disabled={saving} onClick={() => void savePreferences()}>{saving ? "Saving…" : "Save preferences"}</Button>{message ? <p role="status" className="text-sm text-green-700">{message}</p> : null}
+    </CardContent></Card>
+    <Card><CardHeader><CardTitle>Prediction availability</CardTitle><CardDescription>Prediction generation is disabled until an approved model and risk policy are configured.</CardDescription></CardHeader><CardContent><p className="text-sm text-slate-600">No GPA threshold, attendance threshold, or risk rule can be changed here because none is approved in the API contract.</p></CardContent></Card>
+  </div>;
 }
