@@ -238,7 +238,7 @@ async function readResponse<T>(response: Response): Promise<T> {
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelope<T>> {
   let response = await rawRequest(path, init);
-  if (response.status === 401 && path !== "/auth/refresh" && path !== "/auth/login") {
+  if (response.status === 401 && path !== "/auth/refresh" && path !== "/auth/login" && path !== "/auth/register") {
     try {
       if (await refreshSession()) response = await rawRequest(path, init);
     } catch (error) {
@@ -249,7 +249,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     await fetch(apiUrl("/auth/csrf"), { credentials: "include", cache: "no-store" }).catch(() => undefined);
     response = await rawRequest(path, init);
   }
-  if (response.status === 401 && typeof window !== "undefined" && !["/auth/login", "/auth/csrf", "/auth/refresh"].includes(path)) {
+  if (response.status === 401 && typeof window !== "undefined" && !["/auth/login", "/auth/register", "/auth/csrf", "/auth/refresh"].includes(path)) {
     window.dispatchEvent(new Event("academic:session-expired"));
   }
   return readResponse<ApiEnvelope<T>>(response);
