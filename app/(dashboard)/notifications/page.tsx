@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Pagination } from "@/components/ui/pagination";
 import { PageHeader } from "@/components/ui/page-header";
+import { useNotificationSocket } from "@/hooks/use-notification-socket";
 import { apiRequest, formatApiError, type NotificationItem } from "@/lib/api";
 import { useEffect, useState } from "react";
 
@@ -18,14 +19,35 @@ export default function NotificationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [socketHint, setSocketHint] = useState<string | null>(null);
+
   useEffect(() => {
     let alive = true;
     apiRequest<NotificationItem[]>(`/notifications?page=${page}&pageSize=25`).then((result) => {
       if (!alive) return;
-      setItems(result.data); setPageCount(result.meta?.totalPages ?? 1);
+      setItems(result.data); setPageCount(result.meta?.totalPages ?? 1); setSocketHint(null);
     }).catch((reason: unknown) => { if (alive) setError(formatApiError(reason)); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [page, retry]);
+
+  useNotificationSocket({
+    enabled: true,
+    onEvent: (event) => {
+      if (page !== 1) {
+        setRetry((value) => value + 1);
+        return;
+      }
+      setItems((current) => {
+        if (current.some((item) => item.id === event.id)) return current;
+        return [{ id: event.id, title: event.title, message: event.message, readAt: event.readAt, createdAt: event.createdAt }, ...current];
+      });
+    },
+    onReconnectSync: (synced) => {
+      if (page === 1) setItems(synced);
+      else setRetry((value) => value + 1);
+      setSocketHint("Realtime connection restored; notification list refreshed from the API.");
+    },
+  });
 
   async function markRead(id: string) {
     setActionError(null);
@@ -38,8 +60,9 @@ export default function NotificationsPage() {
     catch (reason) { setActionError(formatApiError(reason)); }
   }
 
-  return <div className="space-y-6"><PageHeader title="Notifications" description="Persisted in-app messages for your signed-in account." />
+  return <div className="space-y-6"><PageHeader title="Notifications" description="Persisted in-app messages for your signed-in account. Realtime delivery supplements the REST inbox; history remains API-backed." />
     {items.some((item) => !item.readAt) ? <button className={buttonClassName("outline", "sm")} onClick={() => void markAllRead()}>Mark all as read</button> : null}
+    {socketHint ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">{socketHint}</p> : null}
     {actionError ? <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{actionError}</p> : null}
     {error ? <ErrorState title="Notifications could not be loaded" description={error} onRetry={() => { setLoading(true); setError(null); setRetry((value) => value + 1); }} /> : null}
     {loading ? <LoadingState label="Loading your notifications" /> : error ? null : <Card className="divide-y divide-slate-100 px-4">{items.length ? items.map((item) => <article key={item.id} className="flex flex-col gap-2 py-4 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="font-medium text-slate-900">{item.title}{!item.readAt ? <span className="ml-2 rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700">Unread</span> : null}</h2><p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{item.message}</p><p className="mt-2 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{!item.readAt ? <button className={buttonClassName("outline", "sm")} onClick={() => void markRead(item.id)}>Mark read</button> : null}</article>) : <EmptyState title="No messages yet" description="Messages addressed to this account will appear here." />}<Pagination page={page} pageCount={pageCount} onPageChange={(nextPage) => { setLoading(true); setPage(nextPage); }} /></Card>}

@@ -2,9 +2,11 @@
 
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
-import { apiData, type SessionUser } from "@/lib/api";
+import { apiData, apiRequest, type NotificationItem, type SessionUser } from "@/lib/api";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { useNotificationSocket } from "@/hooks/use-notification-socket";
+import { disconnectNotificationSocket } from "@/lib/notification-socket";
 import { NAV_ITEMS } from "@/lib/nav";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
@@ -17,6 +19,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [unread, setUnread] = useState(0);
   const [retry, setRetry] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
@@ -34,7 +37,29 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }, [router, retry]);
 
   useEffect(() => {
-    const expire = () => router.replace("/login?reason=session-expired");
+    if (!user) return;
+    let alive = true;
+    apiRequest<NotificationItem[]>("/notifications?unread=true&page=1&pageSize=1").then((result) => {
+      if (alive) setUnread(result.meta?.total ?? result.data.length);
+    }).catch(() => { if (alive) setUnread(0); });
+    return () => { alive = false; };
+  }, [user, pathname]);
+
+  useNotificationSocket({
+    enabled: Boolean(user),
+    onEvent: (event) => {
+      if (!event.readAt) setUnread((value) => value + 1);
+    },
+    onReconnectSync: (items) => {
+      setUnread(items.filter((item) => !item.readAt).length);
+    },
+  });
+
+  useEffect(() => {
+    const expire = () => {
+      disconnectNotificationSocket();
+      router.replace("/login?reason=session-expired");
+    };
     window.addEventListener("academic:session-expired", expire);
     return () => window.removeEventListener("academic:session-expired", expire);
   }, [router]);
@@ -50,6 +75,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   async function signOut() {
     setLogoutError(null);
     try {
+      disconnectNotificationSocket();
       await apiData("/auth/logout", { method: "POST" });
       router.replace("/login");
       router.refresh();
@@ -61,7 +87,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-slate-50">
       <Sidebar open={open} onClose={() => setOpen(false)} user={user} onSignOut={() => void signOut()} />
       <div className="lg:pl-64">
-        <Header onMenuClick={() => setOpen(true)} alertCount={0} user={user} onSignOut={() => void signOut()} />
+        <Header onMenuClick={() => setOpen(true)} alertCount={unread} user={user} onSignOut={() => void signOut()} />
         <main className="px-4 py-5 xs:px-5 md:px-6 lg:px-8 lg:py-6">
           <div className="mx-auto max-w-[1440px]">{logoutError ? <p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{logoutError}</p> : null}{children}</div>
         </main>
