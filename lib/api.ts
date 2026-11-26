@@ -117,7 +117,10 @@ export interface StoredPrediction {
   riskLevel: "LOW" | "MEDIUM" | "HIGH";
   probability: number | string | null;
   generatedAt: string;
+  featureSnapshot?: { isSynthetic?: boolean; demoLabel?: string; attendance?: number; prior_gpa?: number; quiz_avg?: number; midterm?: number; assignment_avg?: number } | null;
+  explanation?: { label?: string; isSynthetic?: boolean; contributingIndicators?: Record<string, number> } | null;
   term?: Pick<AcademicTerm, "code" | "label">;
+  student?: { id: string; studentNumber: string; name: string };
   modelVersion?: { version: string; targetDefinition: string; metrics: unknown };
   reviews?: Array<{ id: string; outcome: string; rationale: string | null; createdAt: string }>;
 }
@@ -165,6 +168,9 @@ export interface DashboardSummary {
   courses: number;
   offerings: number;
   openAlerts: number;
+  demoData?: boolean;
+  demoRiskCounts?: { LOW: number; MEDIUM: number; HIGH: number } | null;
+  demoDisclaimer?: string | null;
 }
 
 export interface AnalyticsSummary {

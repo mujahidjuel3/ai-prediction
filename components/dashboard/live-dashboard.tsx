@@ -87,8 +87,15 @@ export function LiveDashboard() {
   const openAlerts = user?.role === "ADMIN"
     ? data.summary?.openAlerts ?? 0
     : analytics?.alertsBySeverityAndStatus.filter((row) => row.status !== "RESOLVED").reduce((total, row) => total + row._count, 0) ?? 0;
+  const demoCounts = data.summary?.demoRiskCounts;
   return <div className="space-y-6">
     <PageHeader title="Academic overview" description={user?.role === "TEACHER" ? "Counts and records within the API's assigned-offering scope." : "Current system counts and stored workflow records."} />
+    {data.summary?.demoData && demoCounts ? (
+      <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <strong className="font-semibold">DEMO DATA</strong> — {data.summary.demoDisclaimer ?? "Synthetic demonstration outputs only. Not institutionally validated student risk predictions."}
+        {" "}Low {demoCounts.LOW} · Medium {demoCounts.MEDIUM} · High {demoCounts.HIGH}.
+      </p>
+    ) : null}
     <section className="grid grid-cols-1 gap-4 xs:grid-cols-2 xl:grid-cols-4">
       <StatCard label={user?.role === "TEACHER" ? "Students in assigned offerings" : "Students"} value={analytics?.studentCount ?? 0} icon={Users} />
       <StatCard label="Course offerings returned" value={data.offerings?.length ?? 0} icon={BookOpen} />
@@ -98,6 +105,6 @@ export function LiveDashboard() {
     <Card><CardHeader><CardTitle>Recent alerts</CardTitle><CardDescription>Persisted alerts visible to your role.</CardDescription></CardHeader><CardContent>
       {data.alerts?.length ? <ul className="divide-y divide-slate-100">{data.alerts.map((alert) => <li key={alert.id} className="py-3"><div className="flex flex-wrap justify-between gap-2"><p className="font-medium text-slate-900">{alert.student?.name ?? "Student"} · {alert.severity}</p><span className="text-xs text-slate-500">{alert.status} · {new Date(alert.createdAt).toLocaleDateString()}</span></div><p className="mt-1 text-sm text-slate-600">{alert.reason}</p></li>)}</ul> : <EmptyState title="No stored alerts" description="Alerts created by the academic system will appear here." />}
     </CardContent></Card>
-    <p className="text-xs text-slate-500">No GPA, attendance-rate, trend, or risk-distribution metrics are available from the current analytics endpoint.</p>
+    <p className="text-xs text-slate-500">Production GPA/attendance trend analytics remain unavailable until approved institutional summaries exist. Demo risk counts above are labeled DEMO / SYNTHETIC when present.</p>
   </div>;
 }
